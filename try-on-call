@@ -1,0 +1,88 @@
+/##Authenticate User##/
+import sys
+if "google.colab" in sys.modules:
+    from google.colab import auth
+    auth.authenticate_user()
+import typing
+import urllib.request
+import IPython.display
+from PIL import Image as PIL_Image
+from PIL import ImageOps as PIL_ImageOps
+from google import genai
+from google.genai.types import 
+(   GenerateImagesConfig,
+    Image,
+    ProductImage,
+    RecontextImageConfig,
+    RecontextImageSource,)
+import matplotlib.image as img
+import matplotlib.pyplot as plt
+import numpy as np
+
+/##Select Project ID and Region##/
+import os
+PROJECT_ID = "ga4-bigquerytest-platypus-nz"  # @param {type: "string", placeholder: "[your-project-id]", isTemplate: true}
+if not PROJECT_ID or PROJECT_ID == "[your-project-id]":
+    PROJECT_ID = str(os.environ.get("GOOGLE_CLOUD_PROJECT"))
+LOCATION = os.environ.get("GOOGLE_CLOUD_REGION", "us-central1")
+client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
+
+/##Load model to use and image paremeters##/
+def display_image(image, max_width: int = 700, max_height: int = 400,)-> None:
+    pil_image = typing.cast(PIL_Image.Image, image._pil_image)
+    if pil_image.mode != "RGB":
+        # RGB is supported by all Jupyter environments (e.g. RGBA is not yet)
+        pil_image = pil_image.convert("RGB")
+    image_width, image_height = pil_image.size
+    if max_width < image_width or max_height < image_height:
+        # Resize to display a smaller notebook image
+        pil_image = PIL_ImageOps.contain(pil_image, (max_width, max_height))
+    IPython.display.display(pil_image)
+def display_local_image(images: list[str],) -> None:
+    fig, axes = plt.subplots(1, len(images), figsize=(12, 6))
+    if len(images) == 1:
+        axes = np.array([axes])
+    for i, ax in enumerate(axes):
+        image = img.imread(images[i])
+        ax.imshow(image)
+        ax.axis("off")
+    plt.show()
+virtual_try_on = "virtual-try-on-preview-08-04"
+image_generation = "imagen-4.0-generate-001"
+
+/##Load base user image and product image##/
+from google.colab import files
+import os
+base_image_filename = None
+clothing_image_filename = None
+
+# 1. Prompt for the Base Image
+print("Please upload the Base Image (e.g., the person):")
+uploaded_base = files.upload()
+if len(uploaded_base) > 0:
+    base_image_filename = next(iter(uploaded_base))
+    print(f"Successfully uploaded Base Image: {base_image_filename}\n")
+else:     print("No Base Image was uploaded.\n")
+
+# 2. Prompt for the Clothing Image
+print("Please upload the Clothing image (e.g., the shirt):")
+uploaded_clothing = files.upload()
+if len(uploaded_clothing) > 0:
+    clothing_image_filename = next(iter(uploaded_clothing))
+    print(f"Successfully uploaded Clothing image: {clothing_image_filename}\n")
+else:     print("No Clothing image was uploaded.\n")
+
+# 3. Display both images (if they were both uploaded)
+if base_image_filename and clothing_image_filename:
+    print("Displaying both images:")
+    # Assuming display_local_image() can take a list of filenames
+    display_local_image([base_image_filename, clothing_image_filename])
+else:     print("One or both images were not uploaded. Cannot display.")
+
+/##Send to Model and show output##/
+response = client.models.recontext_image(model=virtual_try_on, source=RecontextImageSource
+			(	person_image=Image.from_file(location=base_image_filename), 
+				product_images=[ProductImage(product_image=Image.from_file(location=clothing_image_filename))]
+				,),config=RecontextImageConfig(output_mime_type="image/jpeg", number_of_images=1, safety_filter_level="BLOCK_LOW_AND_ABOVE",),)
+response.generated_images[0].image.save("try-on.jpeg")
+display_image(response.generated_images[0].image)
