@@ -1,0 +1,7 @@
+{
+  "name": "NanoStyle AI",
+  "description": "A virtual try-on and fashion editing application powered by Gemini 2.5 Flash Image. Upload your photo, choose a garment, or describe a style to generate realistic visualizations.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
